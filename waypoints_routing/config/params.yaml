@@ -1,0 +1,5 @@
+waypoints_routing_node:
+  ros__parameters:
+    map_path: "/home/genis/Desktop/dpu_ws/src/DPU-NaviCar/map_visualizer/osms/open_house_v2.osm"
+    start_lanelet_id: 7
+    end_lanelet_id: 286
