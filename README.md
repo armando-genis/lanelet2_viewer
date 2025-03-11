@@ -1,5 +1,5 @@
 # lanelet2_viewer
-OSMVisualizer is a ROS 2 node designed for rendering OpenStreetMap (OSM) data in RViz2. It contains a customized version of the lanelet2 package that supports elevation changes along the Z-axis, enabling more accurate terrain visualization. These modifications are described at the end of this README. Additionally, OSMVisualizer includes functionality to compute and display the shortest path between two lanelets using their IDs.
+ROS 2 node designed for rendering OpenStreetMap (OSM) data in RViz2 and path routing. It contains a customized version of the lanelet2 package that supports elevation changes along the Z-axis, enabling more accurate terrain visualization. These modifications are described at the end of this README. Additionally, OSMVisualizer includes functionality to compute and display the shortest path between two lanelets using their IDs.
 
 ## → OSM Visualizer
 ![Reeds-Shepp-Curves Screenshot](https://github.com/armando-genis/lanelet2_viewer/blob/main/imgs/img1.png)
