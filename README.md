@@ -1,5 +1,12 @@
 # lanelet2_viewer
-OSMVisualizer is a ROS 2 node designed for rendering OpenStreetMap (OSM) data in RViz2. It contrains a modified lanelet2 package custom to supports elevation changes along the Z-axis, enabling more accurate terrain visualization. This changes are descripted at the bottom of this README. 
+OSMVisualizer is a ROS 2 node designed for rendering OpenStreetMap (OSM) data in RViz2. It contains a customized version of the lanelet2 package that supports elevation changes along the Z-axis, enabling more accurate terrain visualization. These modifications are described at the end of this README. Additionally, OSMVisualizer includes functionality to compute and display the shortest path between two lanelets using their IDs.
+
+## → OSM Visualizer
+![Reeds-Shepp-Curves Screenshot](https://github.com/armando-genis/lanelet2_viewer/blob/main/imgs/img1.png)
+
+## → Routing path
+![Reeds-Shepp-Curves Screenshot](https://github.com/armando-genis/lanelet2_viewer/blob/main/imgs/img2.png)
+
 
 ## → 🔄 Building Required Packages
 
@@ -49,8 +56,12 @@ colcon build --packages-select waypoints_routing
 source install/setup.bash
 colcon build
 ```
+## → 🛣️ Launchers for HD map & waypoints routing
+```bash
+ros2 launch global_launch map_elements.launch.py
+```
 
-## → 🛣️ Considerations for Creating HD Maps with Vector Map Builder
+## → Considerations for Creating HD Maps with Vector Map Builder
 
 When creating a `Lanelet2Map` in the Vector Map Builder, follow these steps to configure the map projection:
 
