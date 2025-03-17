@@ -90,16 +90,22 @@ private:
   void add_stop_signs(const std::vector<std::array<double, 3>> &positions, float scale_factor = 1.0);
   void add_traffic_lights(const std::vector<std::array<double, 3>> &positions, float scale_factor = 1.0);
   void create_circle(polygon_msgs::msg::Polygon2D &polygon, double center_x, double center_y, double radius, int num_segments);
+  void add_speed_limit_signs(const std::vector<std::array<double, 3>> &positions, const std::vector<int> &speed_limits, float scale_factor = 1.0);
 
   // Publishers for stop signs and traffic lights
   rclcpp::Publisher<polygon_msgs::msg::Polygon2DCollection>::SharedPtr stop_sign_publisher_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr text_marker_publisher_;
   rclcpp::Publisher<polygon_msgs::msg::Polygon2DCollection>::SharedPtr traffic_light_publisher_;
+  rclcpp::Publisher<polygon_msgs::msg::Polygon2DCollection>::SharedPtr speed_limit_publisher_;
 
   // Message collections
   polygon_msgs::msg::Polygon2DCollection stop_sign_polygons;
   polygon_msgs::msg::Polygon2DCollection traffic_light_polygons;
+  visualization_msgs::msg::MarkerArray text_markers;
+  polygon_msgs::msg::Polygon2DCollection speed_limit_polygons;
 
   // Flags for publishers
   bool m_stop_signs_published{false};
   bool m_traffic_lights_published{false};
+  bool m_speed_limit_published{false};
 };

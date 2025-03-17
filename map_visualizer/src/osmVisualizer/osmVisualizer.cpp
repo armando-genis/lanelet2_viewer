@@ -18,6 +18,8 @@ OsmVisualizer::OsmVisualizer() : Node("OsmVisualizer")
   // Add publishers for stop signs and traffic lights
   stop_sign_publisher_ = this->create_publisher<polygon_msgs::msg::Polygon2DCollection>("/stop_sign_polygons", 10);
   traffic_light_publisher_ = this->create_publisher<polygon_msgs::msg::Polygon2DCollection>("/traffic_light_polygons", 10);
+  text_marker_publisher_ = this->create_publisher<visualization_msgs::msg::MarkerArray>("/sign_texts", 10);
+  speed_limit_publisher_ = this->create_publisher<polygon_msgs::msg::Polygon2DCollection>("/speed_limit_polygons", 10);
 
   lanelet::Origin origin({49, 8.4});
   lanelet::projection::LocalCartesianProjector projector(origin);
@@ -47,22 +49,32 @@ OsmVisualizer::OsmVisualizer() : Node("OsmVisualizer")
       {25.0, -12.0, 1.0},
       {-20.0, -15.0, 1.0}};
 
+  // Speed limit signs with corresponding limits
+  std::vector<std::array<double, 3>> speed_limit_positions = {
+      {5.0, 5.0, 0.5},
+      {-15.0, 5.0, 0.5},
+      {10.0, -10.0, 0.5}};
+  std::vector<int> speed_limits = {30, 50, 70}; // Corresponding speed limits
+
   // Get scale parameters
   float stop_sign_scale = 50.0;
   float traffic_light_scale = 50.0;
+  float speed_limit_scale = 50.0;
 
   // Calculate actual scale factors from percentage (e.g., 10 means 110%, -10 means 90%)
   float stop_sign_scale_factor = 1.0 + (stop_sign_scale / 100.0);
   float traffic_light_scale_factor = 1.0 + (traffic_light_scale / 100.0);
+  float speed_limit_scale_factor = 1.0 + (speed_limit_scale / 100.0);
 
-  std::cout << yellow << "----> Stop sign scale: " << stop_sign_scale << "% (factor: "
+  std::cout << yellow << "-----> Stop sign scale: " << stop_sign_scale << "% (factor: "
             << stop_sign_scale_factor << ")" << reset << std::endl;
-  std::cout << yellow << "----> Traffic light scale: " << traffic_light_scale << "% (factor: "
+  std::cout << yellow << "-----> Traffic light scale: " << traffic_light_scale << "% (factor: "
             << traffic_light_scale_factor << ")" << reset << std::endl;
 
   // Add stop signs and traffic lights to the map with scaling
   add_stop_signs(stop_sign_positions, stop_sign_scale_factor);
   add_traffic_lights(traffic_light_positions, traffic_light_scale_factor);
+  add_speed_limit_signs(speed_limit_positions, speed_limits, speed_limit_scale_factor);
 
   RCLCPP_INFO(this->get_logger(), "\033[1;32m----> OsmVisualizer_node initialized.\033[0m");
 }
@@ -127,6 +139,11 @@ void OsmVisualizer::timer_callback()
     }
   }
 
+  if (text_marker_publisher_->get_subscription_count() > 0 && !text_markers.markers.empty())
+  {
+    text_marker_publisher_->publish(text_markers);
+  }
+
   // Publish traffic lights
   if (!traffic_light_polygons.polygons.empty())
   {
@@ -134,6 +151,16 @@ void OsmVisualizer::timer_callback()
     {
       traffic_light_publisher_->publish(traffic_light_polygons);
       m_traffic_lights_published = true;
+    }
+  }
+
+  // Publish speed limit signs
+  if (!speed_limit_polygons.polygons.empty())
+  {
+    if (speed_limit_publisher_->get_subscription_count() > 0 && !m_speed_limit_published)
+    {
+      speed_limit_publisher_->publish(speed_limit_polygons);
+      m_speed_limit_published = true;
     }
   }
 }
@@ -545,6 +572,9 @@ void OsmVisualizer::add_stop_signs(const std::vector<std::array<double, 3>> &pos
   stop_sign_polygons.header.stamp = rclcpp::Clock{}.now();
   stop_sign_polygons.header.frame_id = "map";
 
+  // Clear existing text markers
+  text_markers.markers.clear();
+
   // Set color for stop signs (red)
   std_msgs::msg::ColorRGBA stop_sign_color;
   stop_sign_color.r = 1.0;
@@ -562,12 +592,12 @@ void OsmVisualizer::add_stop_signs(const std::vector<std::array<double, 3>> &pos
   stop_sign_polygons.colors.push_back(stop_sign_border_color);
 
   int stop_sign_id = 1000; // Start IDs from 1000 to avoid conflicts
+  int marker_id = 0;       // ID for text markers
 
   for (const auto &position : positions)
   {
     // Create octagonal shape for stop sign
     polygon_msgs::msg::Polygon2D stop_sign;
-    // Removed stop_sign.id assignment
     stop_sign.z_offset = position[2]; // Use provided z coordinate
 
     // Parameters for the stop sign
@@ -594,11 +624,8 @@ void OsmVisualizer::add_stop_signs(const std::vector<std::array<double, 3>> &pos
 
     stop_sign_polygons.polygons.push_back(stop_sign);
 
-    // Add "STOP" text polygon
-    // In reality, this would be handled better with a marker text
-    // But for the purpose of this example, we'll create a smaller inner octagon
+    // Add white background inner octagon
     polygon_msgs::msg::Polygon2D stop_text_bg;
-    // Removed stop_text_bg.id assignment
     stop_text_bg.z_offset = position[2] + 0.01; // Slightly above the stop sign
 
     // Create a smaller inner octagon (for text background)
@@ -620,6 +647,41 @@ void OsmVisualizer::add_stop_signs(const std::vector<std::array<double, 3>> &pos
 
     stop_sign_polygons.polygons.push_back(stop_text_bg);
 
+    // Create "STOP" text marker
+    visualization_msgs::msg::Marker text_marker;
+    text_marker.header.frame_id = "map";
+    text_marker.header.stamp = rclcpp::Clock{}.now();
+    text_marker.ns = "stop_text";
+    text_marker.id = marker_id++;
+    text_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+    text_marker.action = visualization_msgs::msg::Marker::ADD;
+
+    // Position the text in the center of the sign
+    text_marker.pose.position.x = position[0];
+    text_marker.pose.position.y = position[1];
+    text_marker.pose.position.z = position[2] + 0.02; // Slightly above the inner octagon
+
+    // Set orientation (identity quaternion for text_view_facing)
+    text_marker.pose.orientation.w = 1.0;
+
+    // Set the text
+    text_marker.text = "STOP";
+
+    // Set the scale
+    double text_size = radius * 0.5; // Adjust as needed
+    text_marker.scale.z = text_size; // For text markers, z is the height
+
+    // Set color (black text)
+    text_marker.color.r = 0.0;
+    text_marker.color.g = 0.0;
+    text_marker.color.b = 0.0;
+    text_marker.color.a = 1.0;
+
+    // Set lifetime (0 for forever)
+    text_marker.lifetime = rclcpp::Duration(0, 0);
+
+    text_markers.markers.push_back(text_marker);
+
     // Add the stop sign to road elements collection for semantic information
     traffic_information_msgs::msg::RoadElements stop_element;
     stop_element.id = stop_sign_id++; // Use ID for road elements
@@ -636,7 +698,7 @@ void OsmVisualizer::add_stop_signs(const std::vector<std::array<double, 3>> &pos
 
     road_elements.polygons.push_back(stop_element);
 
-    std::cout << blue << "----> Added stop sign at position ("
+    std::cout << blue << "----> Added stop sign with text at position ("
               << position[0] << ", " << position[1] << ", " << position[2]
               << ")" << reset << std::endl;
   }
@@ -784,5 +846,122 @@ void OsmVisualizer::create_circle(polygon_msgs::msg::Polygon2D &polygon, double 
   if (!polygon.points.empty())
   {
     polygon.points.push_back(polygon.points[0]);
+  }
+}
+
+void OsmVisualizer::add_speed_limit_signs(const std::vector<std::array<double, 3>> &positions, const std::vector<int> &speed_limits, float scale_factor)
+{
+  speed_limit_polygons.polygons.clear();
+  speed_limit_polygons.header.stamp = rclcpp::Clock{}.now();
+  speed_limit_polygons.header.frame_id = "map";
+
+  // Set color for speed limit signs (white background)
+  std_msgs::msg::ColorRGBA white_bg_color;
+  white_bg_color.r = 0.0;
+  white_bg_color.g = 0.0;
+  white_bg_color.b = 0.0;
+  white_bg_color.a = 1.0;
+  speed_limit_polygons.colors.push_back(white_bg_color);
+
+  // Set color for the red circle border
+  std_msgs::msg::ColorRGBA red_border_color;
+  red_border_color.r = 1.0;
+  red_border_color.g = 0.9;
+  red_border_color.b = 0.0;
+  red_border_color.a = 0.9;
+  speed_limit_polygons.colors.push_back(red_border_color);
+
+  int speed_limit_id = 5000; // Start IDs from 5000 to avoid conflicts
+
+  for (size_t i = 0; i < positions.size(); ++i)
+  {
+    const auto &position = positions[i];
+    int speed_limit = (i < speed_limits.size()) ? speed_limits[i] : 50; // Default to 50 if not specified
+
+    // Create circular shape for speed limit sign
+    polygon_msgs::msg::Polygon2D speed_limit_sign;
+    speed_limit_sign.z_offset = position[2];
+
+    // Parameters for the speed limit sign
+    double base_size = 0.7;
+    double size = base_size * scale_factor;
+    double radius = size / 2.0;
+    int num_segments = 24; // Circle segments
+
+    // Create the circular shape
+    create_circle(speed_limit_sign, position[0], position[1], radius, num_segments);
+    speed_limit_polygons.polygons.push_back(speed_limit_sign);
+
+    // Create red border circle
+    polygon_msgs::msg::Polygon2D border_circle;
+    border_circle.z_offset = position[2] + 0.01; // Slightly above
+
+    // Create a slightly smaller white inner circle for the border
+    polygon_msgs::msg::Polygon2D inner_circle;
+    inner_circle.z_offset = position[2] + 0.02; // Slightly above the border
+
+    // Border is 10% of the radius
+    double inner_radius = radius * 0.9;
+    create_circle(inner_circle, position[0], position[1], inner_radius, num_segments);
+    speed_limit_polygons.polygons.push_back(inner_circle);
+
+    // Add the speed limit sign to road elements collection for semantic information
+    traffic_information_msgs::msg::RoadElements speed_limit_element;
+    speed_limit_element.id = speed_limit_id++;
+    speed_limit_element.type = "speed_limit";
+
+    // Include the speed limit value in the type field instead
+    // since RoadElements doesn't have a value field
+    speed_limit_element.type = "speed_limit_" + std::to_string(speed_limit);
+
+    // Copy the points from the sign polygon
+    for (const auto &point : speed_limit_sign.points)
+    {
+      polygon_msgs::msg::Point2D p;
+      p.x = point.x;
+      p.y = point.y;
+      speed_limit_element.points.push_back(p);
+    }
+
+    road_elements.polygons.push_back(speed_limit_element);
+
+    // Add text marker for the speed limit
+    visualization_msgs::msg::Marker text_marker;
+    text_marker.header.frame_id = "map";
+    text_marker.header.stamp = rclcpp::Clock{}.now();
+    text_marker.ns = "speed_limit_text";
+    text_marker.id = speed_limit_id;
+    text_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+    text_marker.action = visualization_msgs::msg::Marker::ADD;
+
+    // Position the text in the center of the sign
+    text_marker.pose.position.x = position[0];
+    text_marker.pose.position.y = position[1];
+    text_marker.pose.position.z = position[2] + 0.03; // Slightly above the inner circle
+
+    // Set orientation (identity quaternion for text_view_facing)
+    text_marker.pose.orientation.w = 1.0;
+
+    // Set the text (speed limit value)
+    text_marker.text = std::to_string(speed_limit);
+
+    // Set the scale
+    double text_size = radius * 0.8;
+    text_marker.scale.z = text_size; // For text markers, z is the height
+
+    // Set color (black text)
+    text_marker.color.r = 0.0;
+    text_marker.color.g = 0.0;
+    text_marker.color.b = 0.0;
+    text_marker.color.a = 1.0;
+
+    // Set lifetime (0 for forever)
+    text_marker.lifetime = rclcpp::Duration(0, 0);
+
+    text_markers.markers.push_back(text_marker);
+
+    std::cout << purple << "----> Added speed limit sign (" << speed_limit << " km/h) at position ("
+              << position[0] << ", " << position[1] << ", " << position[2]
+              << ")" << reset << std::endl;
   }
 }
