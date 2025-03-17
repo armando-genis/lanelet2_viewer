@@ -87,8 +87,8 @@ private:
   // Stop signs and traffic lights
   // #########################3
 
-  void add_stop_signs(const std::vector<std::array<double, 3>> &positions);
-  void add_traffic_lights(const std::vector<std::array<double, 3>> &positions);
+  void add_stop_signs(const std::vector<std::array<double, 3>> &positions, float scale_factor = 1.0);
+  void add_traffic_lights(const std::vector<std::array<double, 3>> &positions, float scale_factor = 1.0);
   void create_circle(polygon_msgs::msg::Polygon2D &polygon, double center_x, double center_y, double radius, int num_segments);
 
   // Publishers for stop signs and traffic lights

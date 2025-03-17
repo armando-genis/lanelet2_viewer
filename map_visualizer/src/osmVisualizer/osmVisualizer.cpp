@@ -35,7 +35,7 @@ OsmVisualizer::OsmVisualizer() : Node("OsmVisualizer")
 
   // Example positions for stop signs - adjust based on your map
   std::vector<std::array<double, 3>> stop_sign_positions = {
-      {10.0, 10.0, 0.5}, // x, y, z
+      {0.0, 0.0, 0.0}, // x, y, z
       {-5.0, 15.0, 0.5},
       {20.0, -8.0, 0.5},
       {-15.0, -12.0, 0.5}};
@@ -47,9 +47,22 @@ OsmVisualizer::OsmVisualizer() : Node("OsmVisualizer")
       {25.0, -12.0, 1.0},
       {-20.0, -15.0, 1.0}};
 
-  // Add stop signs and traffic lights to the map
-  add_stop_signs(stop_sign_positions);
-  add_traffic_lights(traffic_light_positions);
+  // Get scale parameters
+  float stop_sign_scale = 50.0;
+  float traffic_light_scale = 50.0;
+
+  // Calculate actual scale factors from percentage (e.g., 10 means 110%, -10 means 90%)
+  float stop_sign_scale_factor = 1.0 + (stop_sign_scale / 100.0);
+  float traffic_light_scale_factor = 1.0 + (traffic_light_scale / 100.0);
+
+  std::cout << yellow << "----> Stop sign scale: " << stop_sign_scale << "% (factor: "
+            << stop_sign_scale_factor << ")" << reset << std::endl;
+  std::cout << yellow << "----> Traffic light scale: " << traffic_light_scale << "% (factor: "
+            << traffic_light_scale_factor << ")" << reset << std::endl;
+
+  // Add stop signs and traffic lights to the map with scaling
+  add_stop_signs(stop_sign_positions, stop_sign_scale_factor);
+  add_traffic_lights(traffic_light_positions, traffic_light_scale_factor);
 
   RCLCPP_INFO(this->get_logger(), "\033[1;32m----> OsmVisualizer_node initialized.\033[0m");
 }
@@ -523,8 +536,10 @@ void OsmVisualizer::fill_marker(lanelet::LaneletMapPtr &t_map)
   std::cout << blue << "----> Number of road elements: " << road_element_count << reset << std::endl;
 }
 
-// Implementation of the new functions
-void OsmVisualizer::add_stop_signs(const std::vector<std::array<double, 3>> &positions)
+// ############################################################################################################
+// Add stop signs and traffic lights to the map
+// ############################################################################################################
+void OsmVisualizer::add_stop_signs(const std::vector<std::array<double, 3>> &positions, float scale_factor)
 {
   stop_sign_polygons.polygons.clear();
   stop_sign_polygons.header.stamp = rclcpp::Clock{}.now();
@@ -556,7 +571,8 @@ void OsmVisualizer::add_stop_signs(const std::vector<std::array<double, 3>> &pos
     stop_sign.z_offset = position[2]; // Use provided z coordinate
 
     // Parameters for the stop sign
-    double size = 0.8; // Size of the stop sign
+    double base_size = 0.8;                 // Base size of the stop sign
+    double size = base_size * scale_factor; // Apply scaling
     double radius = size / 2.0;
     int num_sides = 8; // Octagon
 
@@ -626,7 +642,7 @@ void OsmVisualizer::add_stop_signs(const std::vector<std::array<double, 3>> &pos
   }
 }
 
-void OsmVisualizer::add_traffic_lights(const std::vector<std::array<double, 3>> &positions)
+void OsmVisualizer::add_traffic_lights(const std::vector<std::array<double, 3>> &positions, float scale_factor)
 {
   traffic_light_polygons.polygons.clear();
   traffic_light_polygons.header.stamp = rclcpp::Clock{}.now();
@@ -674,8 +690,10 @@ void OsmVisualizer::add_traffic_lights(const std::vector<std::array<double, 3>> 
     traffic_light_housing.z_offset = position[2];
 
     // Parameters for the traffic light
-    double width = 0.5;
-    double height = 1.2;
+    double base_width = 0.5;
+    double base_height = 1.2;
+    double width = base_width * scale_factor;
+    double height = base_height * scale_factor;
 
     // Create the rectangular shape for the traffic light housing
     polygon_msgs::msg::Point2D p1, p2, p3, p4;
@@ -700,8 +718,10 @@ void OsmVisualizer::add_traffic_lights(const std::vector<std::array<double, 3>> 
     traffic_light_polygons.polygons.push_back(traffic_light_housing);
 
     // Create the three light circles (red, yellow, green)
-    double light_radius = 0.15;
-    double light_spacing = 0.3;
+    double base_light_radius = 0.15;
+    double base_light_spacing = 0.3;
+    double light_radius = base_light_radius * scale_factor;
+    double light_spacing = base_light_spacing * scale_factor;
 
     // Red light (top)
     polygon_msgs::msg::Polygon2D red_light;
