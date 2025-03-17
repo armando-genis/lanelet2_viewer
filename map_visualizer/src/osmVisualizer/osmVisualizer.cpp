@@ -37,23 +37,23 @@ OsmVisualizer::OsmVisualizer() : Node("OsmVisualizer")
 
   // Example positions for stop signs - adjust based on your map
   std::vector<std::array<double, 3>> stop_sign_positions = {
-      {0.0, 0.0, 0.0}, // x, y, z
+      {9.4, -5.2, 0.0}, // x, y, z
       {-5.0, 15.0, 0.5},
       {20.0, -8.0, 0.5},
       {-15.0, -12.0, 0.5}};
 
   // Example positions for traffic lights - adjust based on your map
   std::vector<std::array<double, 3>> traffic_light_positions = {
-      {15.0, 15.0, 1.0}, // x, y, z
+      {11.2, 1.5, 0.0}, // x, y, z
       {-10.0, 20.0, 1.0},
       {25.0, -12.0, 1.0},
       {-20.0, -15.0, 1.0}};
 
   // Speed limit signs with corresponding limits
   std::vector<std::array<double, 3>> speed_limit_positions = {
-      {5.0, 5.0, 0.5},
+      {3.9, 1.4, 0.0},
       {-15.0, 5.0, 0.5},
-      {10.0, -10.0, 0.5}};
+      {10.0, -20.0, 0.5}};
   std::vector<int> speed_limits = {30, 50, 70}; // Corresponding speed limits
 
   // Get scale parameters
