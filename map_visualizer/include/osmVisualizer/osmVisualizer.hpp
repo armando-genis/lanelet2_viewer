@@ -82,4 +82,24 @@ private:
   std::string map_path_;
   bool enable_inc_path_points_;
   double interval_;
+
+  // #########################3
+  // Stop signs and traffic lights
+  // #########################3
+
+  void add_stop_signs(const std::vector<std::array<double, 3>> &positions);
+  void add_traffic_lights(const std::vector<std::array<double, 3>> &positions);
+  void create_circle(polygon_msgs::msg::Polygon2D &polygon, double center_x, double center_y, double radius, int num_segments);
+
+  // Publishers for stop signs and traffic lights
+  rclcpp::Publisher<polygon_msgs::msg::Polygon2DCollection>::SharedPtr stop_sign_publisher_;
+  rclcpp::Publisher<polygon_msgs::msg::Polygon2DCollection>::SharedPtr traffic_light_publisher_;
+
+  // Message collections
+  polygon_msgs::msg::Polygon2DCollection stop_sign_polygons;
+  polygon_msgs::msg::Polygon2DCollection traffic_light_polygons;
+
+  // Flags for publishers
+  bool m_stop_signs_published{false};
+  bool m_traffic_lights_published{false};
 };

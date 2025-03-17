@@ -15,6 +15,10 @@ OsmVisualizer::OsmVisualizer() : Node("OsmVisualizer")
   polygon_publisher_ = this->create_publisher<polygon_msgs::msg::Polygon2DCollection>("/crosswalk_polygons", 10);
   road_elements_publisher_ = this->create_publisher<traffic_information_msgs::msg::RoadElementsCollection>("/road_elements", 10);
 
+  // Add publishers for stop signs and traffic lights
+  stop_sign_publisher_ = this->create_publisher<polygon_msgs::msg::Polygon2DCollection>("/stop_sign_polygons", 10);
+  traffic_light_publisher_ = this->create_publisher<polygon_msgs::msg::Polygon2DCollection>("/traffic_light_polygons", 10);
+
   lanelet::Origin origin({49, 8.4});
   lanelet::projection::LocalCartesianProjector projector(origin);
   lanelet::LaneletMapPtr map = lanelet::load(map_path_, projector);
@@ -26,9 +30,28 @@ OsmVisualizer::OsmVisualizer() : Node("OsmVisualizer")
     point.y() = point.attribute("local_y").asDouble().value();
   }
 
-  RCLCPP_INFO(this->get_logger(), "\033[1;32m----> OsmVisualizer_node initialized.\033[0m");
   fill_marker(map);
   fill_array_with_left_right(map);
+
+  // Example positions for stop signs - adjust based on your map
+  std::vector<std::array<double, 3>> stop_sign_positions = {
+      {10.0, 10.0, 0.5}, // x, y, z
+      {-5.0, 15.0, 0.5},
+      {20.0, -8.0, 0.5},
+      {-15.0, -12.0, 0.5}};
+
+  // Example positions for traffic lights - adjust based on your map
+  std::vector<std::array<double, 3>> traffic_light_positions = {
+      {15.0, 15.0, 1.0}, // x, y, z
+      {-10.0, 20.0, 1.0},
+      {25.0, -12.0, 1.0},
+      {-20.0, -15.0, 1.0}};
+
+  // Add stop signs and traffic lights to the map
+  add_stop_signs(stop_sign_positions);
+  add_traffic_lights(traffic_light_positions);
+
+  RCLCPP_INFO(this->get_logger(), "\033[1;32m----> OsmVisualizer_node initialized.\033[0m");
 }
 
 bool OsmVisualizer::readParameters()
@@ -78,6 +101,26 @@ void OsmVisualizer::timer_callback()
     if (road_elements_publisher_->get_subscription_count() > 0)
     {
       road_elements_publisher_->publish(road_elements);
+    }
+  }
+
+  // Publish stop signs
+  if (!stop_sign_polygons.polygons.empty())
+  {
+    if (stop_sign_publisher_->get_subscription_count() > 0 && !m_stop_signs_published)
+    {
+      stop_sign_publisher_->publish(stop_sign_polygons);
+      m_stop_signs_published = true;
+    }
+  }
+
+  // Publish traffic lights
+  if (!traffic_light_polygons.polygons.empty())
+  {
+    if (traffic_light_publisher_->get_subscription_count() > 0 && !m_traffic_lights_published)
+    {
+      traffic_light_publisher_->publish(traffic_light_polygons);
+      m_traffic_lights_published = true;
     }
   }
 }
@@ -478,4 +521,248 @@ void OsmVisualizer::fill_marker(lanelet::LaneletMapPtr &t_map)
   }
   std::cout << blue << "----> Number of crosswalk lanelets: " << crosswalk_count << reset << std::endl;
   std::cout << blue << "----> Number of road elements: " << road_element_count << reset << std::endl;
+}
+
+// Implementation of the new functions
+void OsmVisualizer::add_stop_signs(const std::vector<std::array<double, 3>> &positions)
+{
+  stop_sign_polygons.polygons.clear();
+  stop_sign_polygons.header.stamp = rclcpp::Clock{}.now();
+  stop_sign_polygons.header.frame_id = "map";
+
+  // Set color for stop signs (red)
+  std_msgs::msg::ColorRGBA stop_sign_color;
+  stop_sign_color.r = 1.0;
+  stop_sign_color.g = 0.0;
+  stop_sign_color.b = 0.0;
+  stop_sign_color.a = 0.9;
+  stop_sign_polygons.colors.push_back(stop_sign_color);
+
+  // Set border color for stop signs (white)
+  std_msgs::msg::ColorRGBA stop_sign_border_color;
+  stop_sign_border_color.r = 1.0;
+  stop_sign_border_color.g = 1.0;
+  stop_sign_border_color.b = 1.0;
+  stop_sign_border_color.a = 1.0;
+  stop_sign_polygons.colors.push_back(stop_sign_border_color);
+
+  int stop_sign_id = 1000; // Start IDs from 1000 to avoid conflicts
+
+  for (const auto &position : positions)
+  {
+    // Create octagonal shape for stop sign
+    polygon_msgs::msg::Polygon2D stop_sign;
+    // Removed stop_sign.id assignment
+    stop_sign.z_offset = position[2]; // Use provided z coordinate
+
+    // Parameters for the stop sign
+    double size = 0.8; // Size of the stop sign
+    double radius = size / 2.0;
+    int num_sides = 8; // Octagon
+
+    // Create the octagonal shape
+    for (int i = 0; i < num_sides; ++i)
+    {
+      double angle = 2.0 * M_PI * i / num_sides + M_PI / 8.0; // Rotate to align flat edge at bottom
+      polygon_msgs::msg::Point2D point;
+      point.x = position[0] + radius * cos(angle);
+      point.y = position[1] + radius * sin(angle);
+      stop_sign.points.push_back(point);
+    }
+
+    // Close the polygon
+    if (!stop_sign.points.empty())
+    {
+      stop_sign.points.push_back(stop_sign.points[0]);
+    }
+
+    stop_sign_polygons.polygons.push_back(stop_sign);
+
+    // Add "STOP" text polygon
+    // In reality, this would be handled better with a marker text
+    // But for the purpose of this example, we'll create a smaller inner octagon
+    polygon_msgs::msg::Polygon2D stop_text_bg;
+    // Removed stop_text_bg.id assignment
+    stop_text_bg.z_offset = position[2] + 0.01; // Slightly above the stop sign
+
+    // Create a smaller inner octagon (for text background)
+    double inner_radius = radius * 0.7;
+    for (int i = 0; i < num_sides; ++i)
+    {
+      double angle = 2.0 * M_PI * i / num_sides + M_PI / 8.0;
+      polygon_msgs::msg::Point2D point;
+      point.x = position[0] + inner_radius * cos(angle);
+      point.y = position[1] + inner_radius * sin(angle);
+      stop_text_bg.points.push_back(point);
+    }
+
+    // Close the polygon
+    if (!stop_text_bg.points.empty())
+    {
+      stop_text_bg.points.push_back(stop_text_bg.points[0]);
+    }
+
+    stop_sign_polygons.polygons.push_back(stop_text_bg);
+
+    // Add the stop sign to road elements collection for semantic information
+    traffic_information_msgs::msg::RoadElements stop_element;
+    stop_element.id = stop_sign_id++; // Use ID for road elements
+    stop_element.type = "stop_sign";
+
+    // Copy the points from the stop sign polygon
+    for (const auto &point : stop_sign.points)
+    {
+      polygon_msgs::msg::Point2D p;
+      p.x = point.x;
+      p.y = point.y;
+      stop_element.points.push_back(p);
+    }
+
+    road_elements.polygons.push_back(stop_element);
+
+    std::cout << blue << "----> Added stop sign at position ("
+              << position[0] << ", " << position[1] << ", " << position[2]
+              << ")" << reset << std::endl;
+  }
+}
+
+void OsmVisualizer::add_traffic_lights(const std::vector<std::array<double, 3>> &positions)
+{
+  traffic_light_polygons.polygons.clear();
+  traffic_light_polygons.header.stamp = rclcpp::Clock{}.now();
+  traffic_light_polygons.header.frame_id = "map";
+
+  // Set base color for traffic light (dark gray)
+  std_msgs::msg::ColorRGBA traffic_light_color;
+  traffic_light_color.r = 0.3;
+  traffic_light_color.g = 0.3;
+  traffic_light_color.b = 0.3;
+  traffic_light_color.a = 0.9;
+  traffic_light_polygons.colors.push_back(traffic_light_color);
+
+  // Red light color
+  std_msgs::msg::ColorRGBA red_light_color;
+  red_light_color.r = 1.0;
+  red_light_color.g = 0.0;
+  red_light_color.b = 0.0;
+  red_light_color.a = 0.9;
+  traffic_light_polygons.colors.push_back(red_light_color);
+
+  // Yellow light color
+  std_msgs::msg::ColorRGBA yellow_light_color;
+  yellow_light_color.r = 1.0;
+  yellow_light_color.g = 1.0;
+  yellow_light_color.b = 0.0;
+  yellow_light_color.a = 0.9;
+  traffic_light_polygons.colors.push_back(yellow_light_color);
+
+  // Green light color
+  std_msgs::msg::ColorRGBA green_light_color;
+  green_light_color.r = 0.0;
+  green_light_color.g = 1.0;
+  green_light_color.b = 0.0;
+  green_light_color.a = 0.9;
+  traffic_light_polygons.colors.push_back(green_light_color);
+
+  int traffic_light_id = 2000; // Start IDs from 2000 to avoid conflicts
+
+  for (const auto &position : positions)
+  {
+    // Create traffic light housing
+    polygon_msgs::msg::Polygon2D traffic_light_housing;
+    // Removed traffic_light_housing.id assignment
+    traffic_light_housing.z_offset = position[2];
+
+    // Parameters for the traffic light
+    double width = 0.5;
+    double height = 1.2;
+
+    // Create the rectangular shape for the traffic light housing
+    polygon_msgs::msg::Point2D p1, p2, p3, p4;
+    p1.x = position[0] - width / 2;
+    p1.y = position[1] - height / 2;
+
+    p2.x = position[0] + width / 2;
+    p2.y = position[1] - height / 2;
+
+    p3.x = position[0] + width / 2;
+    p3.y = position[1] + height / 2;
+
+    p4.x = position[0] - width / 2;
+    p4.y = position[1] + height / 2;
+
+    traffic_light_housing.points.push_back(p1);
+    traffic_light_housing.points.push_back(p2);
+    traffic_light_housing.points.push_back(p3);
+    traffic_light_housing.points.push_back(p4);
+    traffic_light_housing.points.push_back(p1); // Close the polygon
+
+    traffic_light_polygons.polygons.push_back(traffic_light_housing);
+
+    // Create the three light circles (red, yellow, green)
+    double light_radius = 0.15;
+    double light_spacing = 0.3;
+
+    // Red light (top)
+    polygon_msgs::msg::Polygon2D red_light;
+    // Removed red_light.id assignment
+    red_light.z_offset = position[2] + 0.01; // Slightly in front of housing
+    create_circle(red_light, position[0], position[1] + light_spacing, light_radius, 16);
+    traffic_light_polygons.polygons.push_back(red_light);
+
+    // Yellow light (middle)
+    polygon_msgs::msg::Polygon2D yellow_light;
+    // Removed yellow_light.id assignment
+    yellow_light.z_offset = position[2] + 0.01;
+    create_circle(yellow_light, position[0], position[1], light_radius, 16);
+    traffic_light_polygons.polygons.push_back(yellow_light);
+
+    // Green light (bottom)
+    polygon_msgs::msg::Polygon2D green_light;
+    // Removed green_light.id assignment
+    green_light.z_offset = position[2] + 0.01;
+    create_circle(green_light, position[0], position[1] - light_spacing, light_radius, 16);
+    traffic_light_polygons.polygons.push_back(green_light);
+
+    // Add the traffic light to road elements collection for semantic information
+    traffic_information_msgs::msg::RoadElements traffic_element;
+    traffic_element.id = traffic_light_id++; // Use ID for road elements
+    traffic_element.type = "traffic_light";
+
+    // Copy the points from the traffic light housing
+    for (const auto &point : traffic_light_housing.points)
+    {
+      polygon_msgs::msg::Point2D p;
+      p.x = point.x;
+      p.y = point.y;
+      traffic_element.points.push_back(p);
+    }
+
+    road_elements.polygons.push_back(traffic_element);
+
+    std::cout << green << "----> Added traffic light at position ("
+              << position[0] << ", " << position[1] << ", " << position[2]
+              << ")" << reset << std::endl;
+  }
+}
+
+// Helper function to create circle polygons
+void OsmVisualizer::create_circle(polygon_msgs::msg::Polygon2D &polygon, double center_x, double center_y, double radius, int num_segments)
+{
+  polygon.points.clear();
+
+  for (int i = 0; i < num_segments; ++i)
+  {
+    double angle = 2.0 * M_PI * i / num_segments;
+    polygon_msgs::msg::Point2D point;
+    point.x = center_x + radius * cos(angle);
+    point.y = center_y + radius * sin(angle);
+    polygon.points.push_back(point);
+  }
+
+  // Close the circle
+  if (!polygon.points.empty())
+  {
+    polygon.points.push_back(polygon.points[0]);
+  }
 }

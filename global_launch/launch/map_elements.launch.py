@@ -48,7 +48,7 @@ def generate_launch_description():
     
     return launch.LaunchDescription([
         map_visualizer_node,
-        pdc_to_rose_node,
+        # pdc_to_rose_node,
         publisher_node_planner,
         occupancy_map_node
     ])
