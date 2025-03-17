@@ -83,9 +83,9 @@ private:
   bool enable_inc_path_points_;
   double interval_;
 
-  // #########################3
+  // #########################
   // Stop signs and traffic lights
-  // #########################3
+  // #########################
 
   void add_stop_signs(const std::vector<std::array<double, 3>> &positions, float scale_factor = 1.0);
   void add_traffic_lights(const std::vector<std::array<double, 3>> &positions, float scale_factor = 1.0);

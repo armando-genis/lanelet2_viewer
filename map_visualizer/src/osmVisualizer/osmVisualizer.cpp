@@ -1,3 +1,4 @@
+// Based on the code made by Mücahit Ayhan but fully changed for needs and requirements to visualize the map. Also added some new features like the crosswalks, road elements, stop signs, traffic lights, and speed limit signs. Also add interpolation in the fill_array_with_left_right function for better data processing.
 #include "../include/osmVisualizer/osmVisualizer.hpp"
 
 OsmVisualizer::OsmVisualizer() : Node("OsmVisualizer")
@@ -54,14 +55,14 @@ OsmVisualizer::OsmVisualizer() : Node("OsmVisualizer")
       {3.9, 1.4, 0.0},
       {-15.0, 5.0, 0.5},
       {10.0, -20.0, 0.5}};
-  std::vector<int> speed_limits = {30, 50, 70}; // Corresponding speed limits
+  std::vector<int> speed_limits = {30, 50, 70};
 
   // Get scale parameters
   float stop_sign_scale = 50.0;
   float traffic_light_scale = 50.0;
   float speed_limit_scale = 50.0;
 
-  // Calculate actual scale factors from percentage (e.g., 10 means 110%, -10 means 90%)
+  // Calculate actual scale factors from percentage
   float stop_sign_scale_factor = 1.0 + (stop_sign_scale / 100.0);
   float traffic_light_scale_factor = 1.0 + (traffic_light_scale / 100.0);
   float speed_limit_scale_factor = 1.0 + (speed_limit_scale / 100.0);
@@ -591,8 +592,8 @@ void OsmVisualizer::add_stop_signs(const std::vector<std::array<double, 3>> &pos
   stop_sign_border_color.a = 1.0;
   stop_sign_polygons.colors.push_back(stop_sign_border_color);
 
-  int stop_sign_id = 1000; // Start IDs from 1000 to avoid conflicts
-  int marker_id = 0;       // ID for text markers
+  int stop_sign_id = 1000;
+  int marker_id = 0;
 
   for (const auto &position : positions)
   {
@@ -659,7 +660,7 @@ void OsmVisualizer::add_stop_signs(const std::vector<std::array<double, 3>> &pos
     // Position the text in the center of the sign
     text_marker.pose.position.x = position[0];
     text_marker.pose.position.y = position[1];
-    text_marker.pose.position.z = position[2] + 0.02; // Slightly above the inner octagon
+    text_marker.pose.position.z = position[2] + 0.02;
 
     // Set orientation (identity quaternion for text_view_facing)
     text_marker.pose.orientation.w = 1.0;
@@ -668,8 +669,8 @@ void OsmVisualizer::add_stop_signs(const std::vector<std::array<double, 3>> &pos
     text_marker.text = "STOP";
 
     // Set the scale
-    double text_size = radius * 0.5; // Adjust as needed
-    text_marker.scale.z = text_size; // For text markers, z is the height
+    double text_size = radius * 0.5;
+    text_marker.scale.z = text_size;
 
     // Set color (black text)
     text_marker.color.r = 0.0;
@@ -775,7 +776,7 @@ void OsmVisualizer::add_traffic_lights(const std::vector<std::array<double, 3>> 
     traffic_light_housing.points.push_back(p2);
     traffic_light_housing.points.push_back(p3);
     traffic_light_housing.points.push_back(p4);
-    traffic_light_housing.points.push_back(p1); // Close the polygon
+    traffic_light_housing.points.push_back(p1);
 
     traffic_light_polygons.polygons.push_back(traffic_light_housing);
 
@@ -808,7 +809,7 @@ void OsmVisualizer::add_traffic_lights(const std::vector<std::array<double, 3>> 
 
     // Add the traffic light to road elements collection for semantic information
     traffic_information_msgs::msg::RoadElements traffic_element;
-    traffic_element.id = traffic_light_id++; // Use ID for road elements
+    traffic_element.id = traffic_light_id++;
     traffic_element.type = "traffic_light";
 
     // Copy the points from the traffic light housing
@@ -886,7 +887,7 @@ void OsmVisualizer::add_speed_limit_signs(const std::vector<std::array<double, 3
     double base_size = 0.7;
     double size = base_size * scale_factor;
     double radius = size / 2.0;
-    int num_segments = 24; // Circle segments
+    int num_segments = 24;
 
     // Create the circular shape
     create_circle(speed_limit_sign, position[0], position[1], radius, num_segments);
@@ -894,11 +895,11 @@ void OsmVisualizer::add_speed_limit_signs(const std::vector<std::array<double, 3
 
     // Create red border circle
     polygon_msgs::msg::Polygon2D border_circle;
-    border_circle.z_offset = position[2] + 0.01; // Slightly above
+    border_circle.z_offset = position[2] + 0.01;
 
     // Create a slightly smaller white inner circle for the border
     polygon_msgs::msg::Polygon2D inner_circle;
-    inner_circle.z_offset = position[2] + 0.02; // Slightly above the border
+    inner_circle.z_offset = position[2] + 0.02;
 
     // Border is 10% of the radius
     double inner_radius = radius * 0.9;
@@ -909,9 +910,6 @@ void OsmVisualizer::add_speed_limit_signs(const std::vector<std::array<double, 3
     traffic_information_msgs::msg::RoadElements speed_limit_element;
     speed_limit_element.id = speed_limit_id++;
     speed_limit_element.type = "speed_limit";
-
-    // Include the speed limit value in the type field instead
-    // since RoadElements doesn't have a value field
     speed_limit_element.type = "speed_limit_" + std::to_string(speed_limit);
 
     // Copy the points from the sign polygon
@@ -937,9 +935,8 @@ void OsmVisualizer::add_speed_limit_signs(const std::vector<std::array<double, 3
     // Position the text in the center of the sign
     text_marker.pose.position.x = position[0];
     text_marker.pose.position.y = position[1];
-    text_marker.pose.position.z = position[2] + 0.03; // Slightly above the inner circle
+    text_marker.pose.position.z = position[2] + 0.03;
 
-    // Set orientation (identity quaternion for text_view_facing)
     text_marker.pose.orientation.w = 1.0;
 
     // Set the text (speed limit value)
@@ -947,7 +944,7 @@ void OsmVisualizer::add_speed_limit_signs(const std::vector<std::array<double, 3
 
     // Set the scale
     double text_size = radius * 0.8;
-    text_marker.scale.z = text_size; // For text markers, z is the height
+    text_marker.scale.z = text_size;
 
     // Set color (black text)
     text_marker.color.r = 0.0;
